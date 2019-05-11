@@ -38,7 +38,7 @@ Note: When you run the npm install we will try to install a copy of hsd in this 
 When we run HSD with stratum support we run like this::
 
 ```
-./bin/hsd --network=testnet --cors=true --api-key=earthlab --http-host=0.0.0.0 --coinbase-address=ts1q59rxjegn030vwe0z3jjgx76j6ql44tpfwkjv5g --index-address=true --index-tx=true --listen --plugins hstratum --stratum-host 0.0.0.0 --stratum-port 3008 --stratum-public-host 0.0.0.0 --stratum-public-port 3008 --stratum-max-inbound 1000 --stratum-difficulty 8 --stratum-dynamic --stratum-password=earthlab
+./bin/hsd --network=testnet --cors=true --api-key=earthlab --http-host=0.0.0.0 --coinbase-address=ts1q59rxjegn030vwe0z3jjgx76j6ql44tpfwkjv5g --listen --plugins hstratum --stratum-host 0.0.0.0 --stratum-port 3008 --stratum-public-host 0.0.0.0 --stratum-public-port 3008 --stratum-max-inbound 1000 --stratum-difficulty 8 --stratum-dynamic --stratum-password=earthlab
 ```
 ^^ Notice the --coinbase-address field: that's your wallet you'd like to mine to.
 
@@ -54,7 +54,8 @@ Modify the JSON in config.json
   "port":"3008", //stratum port
   "stratum_user":"earthlab", //optional, for pool stratum mining only: your username in the stratum
   "stratum_pass":"earthlab", //stratum password you started hsd with
-  "wallet":"ts1q59rxjegn030vwe0z3jjgx76j6ql44tpfwkjv5g" //optional, for pool stratum mining only: your wallet
+  "wallet":"ts1q59rxjegn030vwe0z3jjgx76j6ql44tpfwkjv5g", //optional, for pool stratum mining only: your wallet
+  "muteWinningFanfare":true //optional, set to true to turn off the awesome block submission fanfare song.
 }
 ```
 The GPU ID's are a comma separated string of GPU ID integers, aka ```"1,2,3"```. 
@@ -79,7 +80,7 @@ Likely they are the same ones you mine with on your rig config elsewhere. If you
 After that you should have hstratum all set.
 2. To start HSD with stratum support, cd back into the hsd repo root and: 
 ```
-./bin/hsd --network=testnet --cors=true --api-key=earthlab --http-host=0.0.0.0 --coinbase-address=ts1q59rxjegn030vwe0z3jjgx76j6ql44tpfwkjv5g --index-address=true --index-tx=true --listen --plugins hstratum --stratum-host 0.0.0.0 --stratum-port 3008 --stratum-public-host 0.0.0.0 --stratum-public-port 3008 --stratum-max-inbound 1000 --stratum-difficulty 8 --stratum-dynamic --stratum-password=earthlab
+./bin/hsd --network=testnet --cors=true --api-key=earthlab --http-host=0.0.0.0 --coinbase-address=ts1q59rxjegn030vwe0z3jjgx76j6ql44tpfwkjv5g --listen --plugins hstratum --stratum-host 0.0.0.0 --stratum-port 3008 --stratum-public-host 0.0.0.0 --stratum-public-port 3008 --stratum-max-inbound 1000 --stratum-difficulty 8 --stratum-dynamic --stratum-password=earthlab
 ```
 ^^ Notice the --coinbase-address field: that's your wallet you'd like to mine to.
 
@@ -141,4 +142,16 @@ npm install --global --production windows-build-tools
 npm install
 //after that, to start all we need is:
 npm start
+```
+
+**Possible Windows Gotchas::**
+If a terminal like Git Bash is throwing errors/problems, try using MinGW-64::
+Go [download mingw-64 8.1.0 with gcc aka "MinGW-W64-install.exe"](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/8.1.0/threads-posix/dwarf/) and have it either installed in 
+```"C:\Program Files\mingw-w64\x86_64-8.1.0-posix-seh-rt_v6-rev0"``` 
+OR feel free to change the line in miner/HandyMiner.js to reflect where your mingw64 binaries are located like::
+```
+envVars.PATH = "C:\\Program\ Files\\mingw-w64\\x86_64-8.1.0-posix-seh-rt_v6-rev0\\bin"+';'+process.env.PATH;
+
+just change the directory part that's "C:\\Program\ Files\\mingw-w64\\x86_64-8.1.0-posix-seh-rt_v6-rev0\\bin" which should only be some verion difference (aka: "x86_64-8.1.0-posix-seh-rt_v6-rev0") if any. Future reference: This will get bundled in/automated..
+
 ```
