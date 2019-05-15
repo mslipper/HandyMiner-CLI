@@ -574,7 +574,7 @@ class Handy {
     bt.target = common.getTarget(bt.bits);
     bt.difficulty = common.getDifficulty(bt.target);
 
-    if(this.config.mode == 'pool'){
+    if(this.config.mode == 'pool' && !this.isMGoing){
       bt.difficulty = this.toDifficulty(bt.bits);
       let pooldiff = this.poolDifficulty;
 
