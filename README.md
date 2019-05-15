@@ -50,12 +50,15 @@ Modify the JSON in config.json
   "gpus":"1", //pass in "-1" here to list your available GPU's/the # you want, prob "1" for single cards/laptops
   "gpu_platform":"0", //probably 0 for mac or laptops, my windows 10 rig was "1"
   "gpu_mfg":"AMD", //AMD||NVIDIA
-  "host":"127.0.0.1", //stratum host
-  "port":"3008", //stratum port
+  "intensity":10, //intensity 1 - 10. Try 11 for >=8GB cards for an extra boost
+  "host":"127.0.0.1", //hsd stratum host
+  "port":"3008", //hsd stratum port
   "stratum_user":"earthlab", //optional, for pool stratum mining only: your username in the stratum
   "stratum_pass":"earthlab", //stratum password you started hsd with
   "wallet":"ts1q59rxjegn030vwe0z3jjgx76j6ql44tpfwkjv5g", //optional, for pool stratum mining only: your wallet
-  "muteWinningFanfare":true //optional, set to true to turn off the awesome block submission fanfare song.
+  "muteWinningFanfare":true, //optional, set to true to turn off the awesome block submission fanfare song.
+  "mode":"solo",//required MINING MODE: solo || pool. Use pool to mine to a pool
+  "poolDifficulty":5000 //pool difficulty. Try to shoot for 20-30 second share times. If you put this low it will block you.
 }
 ```
 The GPU ID's are a comma separated string of GPU ID integers, aka ```"1,2,3"```. 
@@ -67,6 +70,7 @@ So in my configuration I'd just add a comma separated value for all platform and
   "gpus":"0,1,1,2"
   "gpu_platform":"1,1,0,0"
   "gpu_mfg":"amd","amd","nvidia","nvidia",
+  "intensity":"10,5,11,11",
   ...
 
 }
@@ -84,17 +88,11 @@ After that you should have hstratum all set.
 ```
 ^^ Notice the --coinbase-address field: that's your wallet you'd like to mine to.
 
-3. Now that stratum is up and running (feel free to run with --daemon once you have it doing good stuff), if this is the first time you spun it up, you'll need to authorize your miner to the stratum. Just start HandyMiner up by doing: 
-```
-cd (into this directory)
-npm install //only if you didnt already do so
-npm run-script authorize
-```
-Authorize will start HandyMiner too!
+3. Now that stratum is up and running (feel free to run with --daemon once you have it doing good stuff).
 
 **THE POINT::**
 
-From this point on, you can now launch the miner with:
+You can now launch the miner with:
 ```
 cd (into this directory)
 npm start

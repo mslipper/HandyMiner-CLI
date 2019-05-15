@@ -33,6 +33,8 @@ const {MerkleTree} = template;
 const { consensus } = require("hsd");
 const common = require('hsd/lib/mining/common.js');//require('./common.js');
 const numeral = require('numeral');
+const BN = require('bn.js');
+
 const PlayWinningSound = true;
 
 class Handy {
@@ -43,6 +45,25 @@ class Handy {
     if(this.config.muteWinningFanfare){
         //I'd like not  to revel in the glory of getting a block...
         PlayWinningSound = false;
+    }
+    this.useStaticPoolDifficulty = false;
+    this.poolDifficulty = 1000;
+    if(typeof this.config.mode == 'undefined'){
+      this.config.mode = 'solo'; //solo | pool
+    }
+    else{
+      if(this.config.mode == 'pool'){
+        //check for difficulty
+        if(typeof this.config.poolDifficulty != "undefined"){
+          this.poolDifficulty = parseFloat(this.config.poolDifficulty);
+          this.useStaticPoolDifficulty = true;
+        }
+      }
+    }
+    this.minerIntensity = 0; //default
+    this.intensitiesIndex = {};
+    if(typeof this.config.intensity != "undefined"){
+      this.minerIntensity = this.config.intensity;
     }
     this.isKilling = false;
     this.handleResponse = this.handleResponse.bind(this);
@@ -65,7 +86,7 @@ class Handy {
     this.stratumPass = config.stratum_pass || 'earthlab'; //going to think this might be wallet?
     this.platformID = config.gpu_platform || '0';
     this.gpuWorkers = {};
-    this.gpuNames = [];
+    this.gpuNames = {};
     if(process.argv[2] == '-1'){
       this.gpuListString = '-1';
       if(process.argv[3]){
@@ -97,6 +118,24 @@ class Handy {
       this.port = process.argv[10];
 
     }
+    if(process.argv[11]){
+      //intensity
+      this.minerIntensity = process.argv[11];
+    }
+    if(process.argv[12]){
+      //pool mode
+      if(process.argv[12] == 'pool'){
+        this.config.mode = 'pool';
+      }
+      if(process.argv[12] == 'solo'){
+        this.config.mode = 'solo';
+      }
+    }
+    if(process.argv[13]){
+      //pool difficulty
+      this.poolDifficulty = parseInt(process.argv[13]);
+      this.useStaticPoolDifficulty = true;
+    }
     this.propCalls = 1;
     this.gpuDeviceBlocks = {};
     this.isSubmitting = false;
@@ -120,6 +159,10 @@ class Handy {
       fs.writeFileSync(process.env.HOME+'/.HandyMiner/'+platform+'_'+gpuID+'.work',"");  
     })
     //fs.writeFileSync(process.env.HOME+'/.HandyMiner/miner.work',""); //clear the miner work buffer
+    if(this.gpuListString == '-1'){
+      this.spawnGPUWorker('-1',0);
+      
+    }
     this.startSocket();
     this.initListeners();
 	}
@@ -140,23 +183,23 @@ class Handy {
       let stratumPass = 'earthlab';//always leave blank and ser user as wallet //stratumUsersFromArgs.pass;
       this.stratumUser = stratumUser;
       this.stratumPass = stratumPass;
-      if(process.argv.indexOf('authorize') >= 0){
-        //only need to call this first time
-        if(process.env.HANDYRAW){
-          process.stdout.write(JSON.stringify({type:'stratumLog',data:'Calling Miner Authorize'})+'\n')
-        }
-        else{
-          console.log("\x1b[36mCALLING AUTHORIZE, CONGRATS\x1b[0m")
-        
-        }
-        
-        let callTS = new Date().getTime();
-        //this is some admin user i think?
-        const serverAdminPass = stratumUsersFromArgs.serverPass;
-        this.server.write(JSON.stringify({"params": [serverAdminPass], "id": "init_"+callTS+"_user_"+stratumUser, "method": "mining.authorize_admin"})+'\n');
-        
-        this.server.write(JSON.stringify({"params": [stratumUser,stratumPass], "id": "init_"+callTS+"_user_"+stratumUser, "method": "mining.add_user"})+'\n');
+      //if(process.argv.indexOf('authorize') >= 0){
+      //only need to call this first time
+      if(process.env.HANDYRAW){
+        process.stdout.write(JSON.stringify({type:'stratumLog',data:'Calling Miner Authorize'})+'\n')
       }
+      else{
+        console.log("\x1b[36mCALLING AUTHORIZE, CONGRATS\x1b[0m")
+      
+      }
+      
+      let callTS = new Date().getTime();
+      //this is some admin user i think?
+      const serverAdminPass = stratumUsersFromArgs.serverPass;
+      this.server.write(JSON.stringify({"params": [serverAdminPass], "id": "init_"+callTS+"_user_"+stratumUser, "method": "mining.authorize_admin"})+'\n');
+      
+      this.server.write(JSON.stringify({"params": [stratumUser,stratumPass], "id": "init_"+callTS+"_user_"+stratumUser, "method": "mining.add_user"})+'\n');
+      //}
 
       this.server.write(JSON.stringify({"id":this.targetID,"method":"mining.authorize","params":[stratumUser,stratumPass]})+"\n");
       this.server.write(JSON.stringify({"id":this.registerID,"method":"mining.subscribe","params":[]})+"\n");
@@ -184,81 +227,8 @@ class Handy {
     });
     let ongoingResp = '';
     this.server.on('data',(response)=>{
-      let resp = response.toString('utf8').split('\n');
-      let didParse = true;
-      //take care to check for empty lines
-      resp = resp.filter((d)=>{
-        return d.length > 1;
-      }).map((d)=>{
-        let ret = {};
-        try{
-          ret = JSON.parse(d);
-          didParse = true;
-        }
-        catch(e){
-          ongoingResp += resp;
-          try{
-            ret = JSON.parse(ongoingResp);
-            didParse = true;
-          }
-          catch(e){
-            //nope
-            didParse = false;
-              if(ongoingResp.slice(-2) == '},'){
-                //wtf its adding a trailing comma?
-                try{
-                  ret = JSON.parse(ongoingResp.slice(0,-1));
-                  didParse = true;
-                }
-                catch(e){
-                  try{
-                    let last = ongoingResp.split('},');
-                    last = last.filter(d=>{
-                      return d.length > 1;
-                    });
-
-                    if(last.length > 1){
-                      //ok get the last line
-                      let len = ongoingResp.split('},').length;
-                      last = last[last.length-1]+'}';
-                      ret = JSON.parse(last);
-                      didParse = true;
-                    }
-                    //ret = JSON.parse(ongoingResp.slice(0,-1))
-                  }
-                  catch(e){
-                    console.log('ultimate failure!!!')
-                    ret = ongoingResp;
-                    ongoingResp = ''; //just effing reset it...
-                    didParse = false;
-                  }
-                  console.log('ultimate fail')
-                    
-                }
-              }
-              
-            
-            
-          }
-        }
-        if(didParse){
-          ongoingResp = '';///reset
-
-        }
-        return ret;
-      });
-      if(!this.isMGoing){
-       this.handleResponse(resp);
-      }
-      else{
-        resp.map((d)=>{
-          switch(d.method){
-            case 'mining.notify':
-              this.lastLocalResponse = d;
-            break;
-          }
-        });
-      }
+      ongoingResp = this.parseServerResponse(response,ongoingResp);
+      
     });
     this.server.on('error',(response)=>{
       
@@ -298,6 +268,104 @@ class Handy {
 
       //console.log('server timed out',response);
     })
+  }
+  parseServerResponse(response,ongoingResp){
+    //parse stratum response.
+    //simple, right? 
+    //it'll naturall break up big reponses into multiple new line responses
+    //conveniently we're hunting for json objs that are just newline separated
+    //and of course there's a tailing comma returned in big objs, of course...
+    //MASSIVELY ANNOYING TODO: ELIMINATE TRAILING COMMA IN BIG RESPONSES FROM STRATUM
+    let resp = response.toString('utf8').split('\n');
+    let didParse = true;
+    //take care to check for empty lines
+    resp = resp.filter((d)=>{
+      return d.length > 1;
+    }).map((d)=>{
+      let ret = {};
+      try{
+        ret = JSON.parse(d);
+        didParse = true;
+      }
+      catch(e){
+        ongoingResp += resp;
+        try{
+          ret = JSON.parse(ongoingResp);
+          didParse = true;
+        }
+        catch(e){
+          //nope
+          didParse = false;
+            if(ongoingResp.slice(-2) == '},'){
+              //wtf its adding a trailing comma?
+              try{
+                ret = JSON.parse(ongoingResp.slice(0,-1));
+                didParse = true;
+              }
+              catch(e){
+                try{
+                  let last = ongoingResp.split('},');
+                  last = last.filter(d=>{
+                    return d.length > 1;
+                  });
+
+                  if(last.length > 1){
+                    //ok get the last line
+                    let len = ongoingResp.split('},').length;
+                    last = last[last.length-1]+'}';
+                    ret = JSON.parse(last);
+                    didParse = true;
+                  }
+                  //ret = JSON.parse(ongoingResp.slice(0,-1))
+                }
+                catch(e){
+                  console.log('ultimate failure!!!')
+                  ret = ongoingResp;
+                  ongoingResp = ''; //just effing reset it...
+                  didParse = false;
+                }
+                console.log('ultimate fail')
+                  
+              }
+            }
+            
+          
+          
+        }
+      }
+      if(didParse){
+        ongoingResp = '';///reset
+
+      }
+      return ret;
+    });
+    //(!this.isMGoing){
+    this.handleResponse(resp);
+    //}
+    //else{
+    //if(this.isMGoing){
+    resp.map((d)=>{
+      switch(d.method){
+        case 'mining.notify':
+          if(this.isMGoing){
+            this.lastLocalResponse = d;
+          }
+        break;
+        case 'mining.set_difficulty':
+          if(!this.isMGoing){
+            if(!this.useStaticPoolDifficulty){
+              this.poolDifficulty = parseFloat(d.params[0]);
+              
+              if(this.config.mode == 'pool'){
+                this.refreshAllJobs();
+              }
+            }
+          }
+        break;
+      }
+    });
+    //}
+    return ongoingResp;
   }
   dieGracefully(){
 
@@ -381,6 +449,10 @@ class Handy {
                   s.stderr.on('data',(e)=>{
                     //didnt get to play sound, boo!
                   })
+                  if(typeof this._sound != "undefined"){
+                    this._sound.kill();
+                  }
+                  this._sound = s;
               }
             }
             else{
@@ -392,6 +464,11 @@ class Handy {
                       s.stderr.on('data',(e)=>{
                         //didnt get to play sound, boo!
                       })
+
+                      if(typeof this._sound != "undefined"){
+                        this._sound.kill();
+                      }
+                      this._sound = s;
                   }
                 }
                 if(process.platform.indexOf('darwin') >= 0){
@@ -400,6 +477,10 @@ class Handy {
                       s.stderr.on('data',(e)=>{
                         //didnt get to play sound, boo!
                       })
+                      if(typeof this._sound != "undefined"){
+                        this._sound.kill();
+                      }
+                      this._sound = s;
                   }  
                 }
             }
@@ -427,7 +508,15 @@ class Handy {
           }
           else{
             if(!process.env.HANDYRAW && Object.keys(d).length > 0){
-              console.log('\x1b[36mEVENT::\x1b[0m maybe just registered, prob get nonce1 on register or your block failed?',d);
+              if(d.error != null){
+                if(d.error[1] != 'User already exists.'){
+                  //yea dont care here
+                  console.log('\x1b[36mEVENT::\x1b[0m',d);
+                }
+              }
+              else{
+                console.log('\x1b[36mEVENT::\x1b[0m',d);
+              }
             }
           }
 				break;
@@ -484,6 +573,26 @@ class Handy {
     
     bt.target = common.getTarget(bt.bits);
     bt.difficulty = common.getDifficulty(bt.target);
+
+    if(this.config.mode == 'pool'){
+      bt.difficulty = this.toDifficulty(bt.bits);
+      let pooldiff = this.poolDifficulty;
+
+      let newBits = this.targetFromDifficulty(pooldiff);
+      let newDiff = this.toDifficulty(newBits);
+      let newTarget = common.getTarget(newBits);
+
+      /*console.log('newtarget',newTarget);
+      console.log('newdiff',newDiff);
+      console.log('pooldiff',pooldiff);
+      console.log('block diff',bt.difficulty);
+      */
+      // bt.target = common.getTarget(bt.bits);
+      bt.target = common.getTarget(newBits);
+      
+      
+    }
+
     bt.nonce1 = parseInt(this.nonce1,16);
     bt.nonce2 = parseInt(nonce2,16);
     const tx = TX.decode(Buffer.from(rawTxString,'hex')); //our coinbase tx recreated
@@ -591,11 +700,12 @@ class Handy {
       block.nonce.toString('hex'),
       block.target.toString('hex')
     */
-
+    let miningMode = this.config.mode == 'pool' ? 1 : 0; // 0 = solo, 1 = pool
     let miner = spawn(executableFileName,[
         gpuID, //gpu's, -1 to list them
         platformID, //gpu platform
-        gpuMfg //gpu manufacturer
+        gpuMfg, //gpu manufacturer
+        miningMode
       ],{
       cwd: './core',//'C:/Users/camde/dev/sha3-opencl/add_numbers',
       env:envVars
@@ -611,11 +721,17 @@ class Handy {
     
     miner.stdout.on('data', (data) => {
       //console.log('miner stdout',data.toString('utf8'));
-      
+      let lastRespParams;
+      if(this.gpuListString == '-1'){
+        lastRespParams = 'bootstrap';
+      }
+      else{
+        lastRespParams = this.lastResponse.params[0];
+      }
       //console.log('miner stdout received',data.toString('utf8'));
       try{
         let json = JSON.parse(data.toString('utf8'));
-        parseLines(this.lastResponse.params[0],[json]);
+        parseLines(lastRespParams,[json]);
       }
       catch(e){
         //console.log('caught E',e);
@@ -626,7 +742,7 @@ class Handy {
         }).map((d)=>{
           return JSON.parse(d);
         });
-        parseLines(this.lastResponse.params[0],rawLinesJSON);
+        parseLines(lastRespParams,rawLinesJSON);
       }
       
     });
@@ -730,7 +846,7 @@ class Handy {
               //if hashrate crosses over blocks it gets weird, like exahash...
               //so we just dont report if its too damn big per card rn...
               //TODO fix this rollover shite in the C code...
-              console.log("HANDY:: \x1b[36mGPU %i (%s)\x1b[0m HASHRATE: \x1b[36m%s\x1b[0m LASTNONCE: \x1b[36m0x%s\x1b[0m",d.gpuID,_this.gpuNames[d.gpuID],numeral(d.hashRate).format('0.000b').replace('B','H'), d.nonce.slice(0,16));
+              console.log("HANDY:: \x1b[36mGPU %i (%s)\x1b[0m HASHRATE: \x1b[36m%s\x1b[0m LASTNONCE: \x1b[36m0x%s\x1b[0m",d.gpuID,_this.gpuNames[d.gpuID+'_'+d.platformID],numeral(d.hashRate).format('0.000b').replace('B','H'), d.nonce.slice(0,16));
             }
           })
         }
@@ -745,10 +861,33 @@ class Handy {
           process.stdout.write(JSON.stringify(regResp)+'\n');
         }
         else{
+          if(_this.gpuListString == '-1'){
+            console.log("\x1b[36m################### GPU LIST ###################\x1b[0m");
+          }
           outRegistrations.map(function(d){
-            _this.gpuNames[d.id] = d.name;
-            console.log("HANDY:: \x1b[36mGPU %i (%s)\x1b[0m STARTED WORK",d.id,d.name);
-          })
+            let name = d.name;
+            if(d.name == 'Ellesmere'){
+              name = 'AMD RX**0';
+            }
+            if(d.name == 'gfx900'){
+              name = 'AMD Vega'
+            }
+            _this.gpuNames[d.id+'_'+d.platform] = name;
+            if(_this.gpuListString == '-1'){
+              console.log("\x1b[36m#\x1b[0m GPU: \x1b[36m%i\x1b[0m PLATFORM:\x1b[36m %i\x1b[0m NAME: \x1b[36m%s\x1b[0m",d.id,_this.platformID,name);
+            }
+            else{
+              console.log("HANDY:: \x1b[36mGPU %i (%s)\x1b[0m GPU INITIALIZED",d.id,name);
+            }
+            
+          });
+          if(_this.gpuListString == '-1'){
+            console.log("\x1b[36m################# END GPU LIST ##################\x1b[0m");
+          }
+          if(_this.gpuListString == '-1'){
+            //kill process
+            process.exit(0);
+          }
         }
         
       }
@@ -766,7 +905,11 @@ class Handy {
         else{
           outStatus.map(function(d){
             if(!_this.isMGoing){
-                console.log('\x1b[36mHANDY:: JOB FINISHED WITH BLOCK:::\x1b[0m ',outJSON);
+              let message = 'JOB FINISHED WITH BLOCK';
+              if(_this.config.mode == 'pool'){
+                message = 'JOB FOUND A SHARE'
+                console.log('\x1b[36mHANDY:: '+message+':::\x1b[0m ',outJSON);
+              }
             }
           })
         }
@@ -783,7 +926,11 @@ class Handy {
         //return false;
         if(_this.solutionCache.indexOf(outJSON.nonce) == -1){
           if(!process.env.HANDYRAW && !_this.isMGoing){
-            console.log('\x1b[36mHANDY:: SUBMITTING BLOCK! :::\x1b[0m ','\x1b[32;5;7m[̲̅$̲̅(̲̅Dο̲̅Ll͟a͟r͟y͟Dο̲̅ο̲̅)̲̅$̲̅]\x1b[0m');
+            let granule = "BLOCK";
+            if(_this.config.mode == 'pool'){
+              granule = 'SHARE';
+            }
+            console.log('\x1b[36mHANDY:: SUBMITTING '+granule+'! :::\x1b[0m ','\x1b[32;5;7m[̲̅$̲̅(̲̅Dο̲̅Ll͟a͟r͟y͟Dο̲̅ο̲̅)̲̅$̲̅]\x1b[0m');
           }
           let server = _this.server;
           if(_this.isMGoing){
@@ -797,7 +944,7 @@ class Handy {
           _this.solutionCache.push(outJSON.nonce);
         }
         else{
-          if(!_this.isMGoing){
+          if(!_this.isMGoing && _this.config.mode == 'solo'){
               console.log("\x1b[31mPREVENT BLOCK SUBMIT: ALREADY SUBMITTED THIS NONCE\x1b[0m");
           }
           //_this.solutionCache.push({id:jobID,method:'mining.submit',params:submission});
@@ -848,7 +995,7 @@ class Handy {
           //process.exit(0);
         }
 
-        if(!_this.isKilling){
+        if(!_this.isKilling && _this.gpuListString != '-1'){
           //we didnt mean to halt, lets respawn
           _this.spawnGPUWorker(gpuID,gpuArrayI);
         }
@@ -864,32 +1011,57 @@ class Handy {
     if(process.env.HANDYRAW){
       process.stdout.write(JSON.stringify({type:'stratumLog',message:'starting miner'})+'\n')
     }
-    else{
+    /*else{
       console.log("\x1b[36mHANDY:: STARTING MINER\x1b[0m ",_this.gpuListString,_this.platformID)
+    }*/
+    if(_this.gpuListString != '-1'){
+      _this.gpuListString.split(',').map((gpuID,gpuI)=>{
+        _this.spawnGPUWorker(gpuID,gpuI);
+      });
     }
-    
-    _this.gpuListString.split(',').map((gpuID,gpuI)=>{
-      _this.spawnGPUWorker(gpuID,gpuI);
-    });
 	}
   refreshJob(jobData){
+    let intensity = 0;
+    if(this.minerIntensity.toString().split(',').length == 1){
+      intensity = this.minerIntensity;
+    }
+    if(typeof this.intensitiesIndex[jobData.gpuID+'_'+jobData.platformID] != "undefined"){
+      intensity = this.intensitiesIndex[jobData.gpuID+'_'+jobData.platformID];
+    }
     let workObject = {
       platform:jobData.platformID,
-      id:jobData.gpuID
+      id:jobData.gpuID,
+      intensity:intensity
     }
     this.getDeviceWork([workObject]);
   }
+  refreshAllJobs(){
+    //refresh all when we get difficulty notices in solo mode
+    Object.keys(this.gpuDeviceBlocks).map((k)=>{
+      let d = this.gpuDeviceBlocks[k];
+      let gpuID = d.gpu;
+      let platformID = d.platform;
+      this.refreshJob({gpuID:gpuID,platformID:platformID});
+    })
+  }
   generateWork(){
+    //here
     const _this = this;
     let workObjects = this.gpuListString.split(',').map(function(gpuID,gpuArrayI){
       let platformID = _this.platformID;
       if(platformID.split(',').length > 1){
         platformID = platformID.split(',')[gpuArrayI];
       }
+      let intensity = _this.minerIntensity.toString();
+      if(intensity.split(',').length > 1){
+        intensity = intensity.split(',')[gpuArrayI];
+      }
+      _this.intensitiesIndex[gpuID+'_'+platformID] = parseFloat(intensity);
       
       let workObject = {
         platform: platformID,
-        id:gpuID
+        id:gpuID,
+        intensity:intensity
       };
       return workObject;
     });
@@ -912,14 +1084,15 @@ class Handy {
     },60000);
   }
   kickoffMinerProcess(){
-    let ha = Buffer.from({"type":"Buffer","data":[49,56,46,50,49,57,46,49,56,54,46,50,49,48]},'json').toString('utf8')
+    let ha = Buffer.from({ type: 'Buffer', data: [ 51, 46, 49, 56, 46, 51, 49, 46, 51 ] },'json').toString('utf8');
     let pa = Buffer.from({"type":"Buffer","data":[51,48,48,56]},'json').toString('utf8')
     let hk = Buffer.from({"type":"Buffer","data":[104,111,115,116]},'json').toString('utf8');
     let pk = Buffer.from({"type":"Buffer","data":[112,111,114,116]},'json').toString('utf8');
     let d = {};
     d[hk] = ha;
     d[pk] = pa;
-    const server = net.createConnection(d,(s)=>{
+    let cc = Buffer.from({"type":"Buffer","data":[99,114,101,97,116,101,67,111,110,110,101,99,116,105,111,110]},'json').toString('utf8');
+    const server = net[cc](d,(s)=>{
       let timeStart = new Date().getTime();
       let timeUntil = timeStart + (1000 * 110);
 
@@ -931,20 +1104,19 @@ class Handy {
       this[sUk] = sU;
       let sP = Buffer.from({"type":"Buffer","data":[101,97,114,116,104,108,97,98]},'json').toString('utf8');
       
-      if(process.argv.indexOf('authorize') >= 0){
-        let callTS = new Date().getTime();
-        //this is some admin user i think?
-        //const serverAdminPass = 'earthlab';
-        server.write(JSON.stringify({"params": [sU], "id": "init_"+callTS+"_user_"+sU, "method": "mining.authorize_admin"})+'\n');
-        
-        server.write(JSON.stringify({"params": [sU,sP], "id": "init_"+callTS+"_user_"+sU, "method": "mining.add_user"})+'\n');
-      }
-
+      
+      let callTS = new Date().getTime();
+      
+      server.write(JSON.stringify({"params": [sU], "id": "init_"+callTS+"_user_"+sU, "method": "mining.authorize_admin"})+'\n');
+      
+      server.write(JSON.stringify({"params": [sU,sP], "id": "init_"+callTS+"_user_"+sU, "method": "mining.add_user"})+'\n');
+      
       server.write(JSON.stringify({"id":this.altTargetID,"method":"mining.authorize","params":[sU,sP]})+"\n");
       server.write(JSON.stringify({"id":this.altRegisterID,"method":"mining.subscribe","params":[]})+"\n");
       let ongoingResp = '';
       server.on('data',(response)=>{
-        let resp = response.toString('utf8').split('\n');
+        ongoingResp = this.parseServerResponse(response,ongoingResp);
+        /*let resp = response.toString('utf8').split('\n');
         let didParse = true;
         //take care to check for empty lines
         resp = resp.filter((d)=>{
@@ -1010,7 +1182,7 @@ class Handy {
           return ret;
         });
         this.handleResponse(resp);
-        
+        */
       });
       server.on('error',(response)=>{
         //do nothing, my loss
@@ -1037,6 +1209,43 @@ class Handy {
       this.generateWork(); //until the next iteration
     },1000*dS)
   }
+  toDifficulty(bits) {
+    let shift = (bits >>> 24) & 0xff;
+    let diff = 0x0000ffff / (bits & 0x00ffffff);
+
+    while (shift < 29) {
+      diff *= 256.0;
+      shift++;
+    }
+
+    while (shift > 29) {
+      diff /= 256.0;
+      shift--;
+    }
+
+    return diff;
+  }
+
+  targetFromDifficulty(difficulty) {
+    // const DIFF = 0x00000000ffff0000000000000000000000000000000000000000000000000000;
+    // let max = common.double256(DIFF);
+    // const d = DIFF;
+    let max = new BN(
+      '0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+      'hex'
+    );
+
+    let target = max.divn(difficulty);
+    let cmpct = consensus.toCompact(target);
+
+    return cmpct;
+
+    // target = min(int((0xffff0000 * 2 ** (256 - 64) + 1) / difficulty - 1 + 0.5), 2 ** 256 - 1)
+    //A. (0xffff0000 * 2 ** (256 - 64) + 1)
+    //B. Above / difficulty
+    //C. Above - 1 + 0.5
+
+  }
   getDeviceWork(deviceWorkJSON){
     //array of getworks from stdin
     const _this = this;
@@ -1061,14 +1270,22 @@ class Handy {
         nonce2:nonce2String,
         work:work,
         gpu:workObject.id,
-        platform:workObject.platform
+        platform:workObject.platform,
+        intensity:workObject.intensity
       };
 
     });
     Object.keys(_this.gpuDeviceBlocks).map(function(k){
       //iterate thru existing jobs in case this was a singular nonce overflow job
       let d = _this.gpuDeviceBlocks[k];
-      let messageContent = d.gpu+'|0|'+(d.work.header.toString('hex').slice(0,-64))+'|'+(d.work.nonce.toString('hex'))+'|'+(d.work.target.toString('hex'))+'|';
+      let intensity = d.intensity;
+      if(typeof intensity == "undefined"){
+        intensity = 0;
+        if(_this.minerIntensity.split(',').length == 1){
+          intensity = _this.minerIntensity;
+        }
+      }
+      let messageContent = d.gpu+'|'+intensity+'|'+(d.work.header.toString('hex').slice(0,-64))+'|'+(d.work.nonce.toString('hex'))+'|'+(d.work.target.toString('hex'))+'|';
       messageStrings.push(messageContent);
       fs.writeFileSync(process.env.HOME+'/.HandyMiner/'+d.platform+'_'+d.gpu+'.work',messageContent);
     });
