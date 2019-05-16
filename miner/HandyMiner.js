@@ -1237,7 +1237,7 @@ class Handy {
     // let max = common.double256(DIFF);
     // const d = DIFF;
     let max = new BN(
-      '0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+      '000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
       'hex'
     );
 

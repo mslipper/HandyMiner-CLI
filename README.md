@@ -58,7 +58,7 @@ Modify the JSON in config.json
   "wallet":"ts1q59rxjegn030vwe0z3jjgx76j6ql44tpfwkjv5g", //optional, for pool stratum mining only: your wallet
   "muteWinningFanfare":true, //optional, set to true to turn off the awesome block submission fanfare song.
   "mode":"solo",//required MINING MODE: solo || pool. Use pool to mine to a pool
-  "poolDifficulty":5000 //pool difficulty. Try to shoot for 20-30 second share times. If you put this low it will block you.
+  "poolDifficulty":10 //pool difficulty. Try to shoot for 20-30 second share times. If you put this too low it will block you.
 }
 ```
 The GPU ID's are a comma separated string of GPU ID integers, aka ```"1,2,3"```. 
