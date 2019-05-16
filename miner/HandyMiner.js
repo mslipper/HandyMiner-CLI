@@ -35,7 +35,7 @@ const common = require('hsd/lib/mining/common.js');//require('./common.js');
 const numeral = require('numeral');
 const BN = require('bn.js');
 
-const PlayWinningSound = true;
+let PlayWinningSound = true;
 
 class Handy {
 	constructor(){
@@ -439,8 +439,19 @@ class Handy {
 					}
           else if(d.id == this.registerID){
             //we just registered
-            this.nonce1 = d.result[1];
-            this.nonce1Local = d.result[1];
+            if(d.result == null && d.error != null){
+              //was an error
+              if(!process.env.HANDYRAW){
+                  console.log("\x1b[31mHANDY:: STRATUM ERROR: "+d.error[1]+"\x1b[0m");
+              }
+              else{
+                process.stdout.write(JSON.stringify({type:'error',message:d.error[1],data:d}))
+              }
+            }
+            else{
+              this.nonce1 = d.result[1];
+              this.nonce1Local = d.result[1];
+            }
           }
           else if(d.id == this.altRegisterID){
             this.nonce1 = d.result[1];
