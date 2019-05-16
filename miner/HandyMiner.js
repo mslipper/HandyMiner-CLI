@@ -139,8 +139,8 @@ class Handy {
     if(process.argv[14]){
       //too many args sheesh
       //finally we mute fanfare
-      let muteFanfare = parseInt(process.argv[14]) == 1 ? true : false;
-      PlayWinningSound = false;
+      let muteFanfare = parseInt(process.argv[14]) == 1 ? false : true;
+      PlayWinningSound = muteFanfare;
     }
     this.propCalls = 1;
     this.gpuDeviceBlocks = {};
