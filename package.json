@@ -18,6 +18,7 @@
     "bsert": "0.0.8",
     "buffer-map": "0.0.5",
     "bufio": "^1.0.4",
+    "exit-hook": "^2.2.0",
     "hsd": "github:handshake-org/hsd",
     "hstratum": "github:HandshakeAlliance/hstratum",
     "numeral": "^2.0.6",

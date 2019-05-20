@@ -1,12 +1,12 @@
 {
-	"gpus":"0",
-	"gpu_platform":"1",
-	"gpu_mfg":"amd",
+	"gpus":"-1",
+	"gpu_platform":"0",
+	"gpu_mfg":"nvidia",
 	"intensity":10,
-	"host":"18.219.186.210",
+	"host":"127.0.0.1",
 	"port":"3008",
-	"stratum_user":"earthlab",
-	"stratum_pass":"earthlab",
+	"stratum_user":"myStratumRigName",
+	"stratum_pass":"stratumPassword",
 	"wallet":"ts1qlt6tgdmyplg4xtgq2hpc0ek842w5vkrqpu9jjm",
 	"mode":"solo",
 	"poolDifficulty":10

