@@ -25,8 +25,9 @@ EPIC Thanks to Steven McKie for being my mentor/believing in me
 
 # MINER SETUP GUIDE
 
-##Prerequisites:
+## Prerequisites:
 0. **OpenCL support for AMD or NVIDIA GPUs**
+
     Windows/Mac: Built-in, you can skip this.
 
     Linux: try adding the following packages in apt: 
@@ -49,16 +50,22 @@ EPIC Thanks to Steven McKie for being my mentor/believing in me
     - [mingw-64 8.1.0 with gcc aka "MinGW-W64-install.exe"](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/8.1.0/threads-posix/dwarf/)
 
 2. **[node.js](https://nodejs.org) v10.4 - v11+-ish (whatever one has bigint support)**
+
   Mac/Windows: use the link ^
+
   Ubuntu:
   ```
   curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
   sudo apt-get install -y nodejs
   sudo apt-get install node-gyp
   ```
+
 3. **Install platform specific dependencies of hsd/support libraries**
+
   LINUX: ```sudo apt install libunbound-dev``` 
+
   MAC: ```brew install libunbound-dev```
+
   WINDOWS: HSD Install guide is below. You should use docker to run an hsd node.
 
 4. **```npm install``` in this directory.** (windows will throw some nasty looking warnings but still complete)
@@ -70,16 +77,21 @@ cd hsd
 npm install --production
 npm install github:HandshakeAlliance/hstratum
 ```
+
 6. (optional for solo miners running HSD nodes) **Running HSD::**
+
 
 ```
 ./bin/hsd --network=testnet --cors=true --api-key=earthlab --http-host=0.0.0.0 --coinbase-address=ts1q59rxjegn030vwe0z3jjgx76j6ql44tpfwkjv5g --listen --plugins hstratum --stratum-host 0.0.0.0 --stratum-port 3008 --stratum-public-host 0.0.0.0 --stratum-public-port 3008 --stratum-max-inbound 1000 --stratum-difficulty 8 --stratum-dynamic --stratum-password=earthlab
 ```
+
 ^^ Notice the --coinbase-address field: that's your wallet you'd like to mine to. You really only need to change that to run HSD. Also try adding --daemon later
+
 Note the 'stratum-password' (change to whatever you like). We use this in the miner configuration next
 
 
 ## MINER CONFIGURATION
+
 First we should setup our configuration. Note: The default config will list gpus out of the box if you run ```npm start```
 **config.json format**
 ```
@@ -173,7 +185,7 @@ npm install
 npm start
 ```
 
-###Possible Windows Gotchas
+### Possible Windows Gotchas
 If a terminal like Git Bash is throwing errors/problems, try using MinGW-64::
 Go [download mingw-64 8.1.0 with gcc aka "MinGW-W64-install.exe"](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/8.1.0/threads-posix/dwarf/) and have it either installed in 
 ```"C:\Program Files\mingw-w64\x86_64-8.1.0-posix-seh-rt_v6-rev0"``` 
