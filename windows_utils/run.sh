@@ -1,22 +1,27 @@
 #!/bin/bash
-WALLET=ts1qlt6tgdmyplg4xtgq2hpc0ek842w5vkrqpu9jjm
+WALLET=hs1qu2zqenh8jdxvaqz7nwun4r3k32klmuf6ss2y9s
 APIKEY=earthlab
 STRATUMPASS=earthlab
+NETWORK=testnet
 if [ $1 ]
 then
 	WALLET=$1
 fi
 if [ $2 ]
 then
-	APIKEY=$2
+	NETWORK=$2
 fi
-
 if [ $3 ]
 then
-	STRATUMPASS=$3
+	APIKEY=$3
 fi
 
-./bin/hsd --network=testnet --cors=true --api-key=$APIKEY \
+if [ $4 ]
+then
+	STRATUMPASS=$4
+fi
+
+./bin/hsd --network=$NETWORK --cors=true --api-key=$APIKEY \
 --http-host=0.0.0.0 --coinbase-address=$WALLET --index-address=true \
 --index-tx=true --listen --plugins hstratum --stratum-host 0.0.0.0 \
 --stratum-port 3008 --stratum-public-host 0.0.0.0 \

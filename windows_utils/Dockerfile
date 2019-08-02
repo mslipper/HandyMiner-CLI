@@ -13,11 +13,17 @@ RUN npm install github:HandshakeAlliance/hstratum
 
 COPY ./run.sh run.sh
 
+COPY ./stop.sh stop.sh
+
 RUN sed -i -e 's/\r$//' run.sh
 
 RUN chmod 0775 run.sh
 
+RUN sed -i -e 's/\r$//' stop.sh
+
+RUN chmod 0775 stop.sh
+
 WORKDIR /usr/hsd
 
-EXPOSE 13037 13038 13039 3008
+EXPOSE 12937 12938 13937 13938 13939 3008
 
