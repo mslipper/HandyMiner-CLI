@@ -37,13 +37,19 @@ This current iteration is specific to the Next-Generation PoW work in Handshake.
 
 (windows) [mingw-64 8.1.0 with gcc aka "MinGW-W64-install.exe"](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/8.1.0/threads-posix/dwarf/) bash terminal utilities, please add the installation /bin folder to your Path environment variable
 
-### INSTALLATION
-
 Linux: OpenCL Drivers and dependencies install can be found in [./linux_installation.md](./linux_installation.md)
 
-```npm install``` in this directory or (windows) double-click ```install.windows.bat``` (and make sure to run this as administrator)
+### INSTALLATION
 
-Note: When you run the npm install we will try to install a copy of hsd in this directory. It will probably fail/complain about unbound support which is fine. We won't be running HSD anyway, only including a couple of files for block header creation from actual HSD block data. You can ignore warnings/failures in this install.
+#### Command Line (mac/linux) :
+
+```npm install``` in this directory or 
+
+#### Windows: 
+
+double-click ```install.windows.bat``` (and make sure to run this as administrator). Windows: This will probably take 10 minutes to build.
+
+Note: When you run the intaller we will install a copy of hsd in this directory. It will probably fail/complain about unbound support which is fine. We won't be running HSD anyway, only including a couple of files for block header creation from actual HSD block data. You can ignore warnings/failures in this install.
 
 Windows folks: If you didnt double click ```install.windows.bat``` youll need to run the following commands in the repo root (make sure to use admin privileges to the terminal) :
 ```npm install --global --production windows-build-tools && npm config set msvs_version 2017 --global``` followed by your ```npm install```
@@ -54,22 +60,15 @@ C:\Program Files\nodejs\node_modules\npm\bin
 C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\MSBuild\15.0\Bin
 ```
 
-### MINER CONFIGURATION
-
-The first time you run the miner, you will run through a configurator which will write a config to ./config.json. Should you want to reconfigure in the future, you can just run ```node configure.js``` in this directory. Alternately delete config.json and (re)start the miner.
-
-Required Items to have ready for configuration:
-
-0. host or IP address of the pool or solo node you mine to (127.0.0.1 for your local fullnode)
-
-Optional configuration items (just leave blank and hit enter if you dont know) :
-1. pool or solo node port (probably 3008)
-2. the stratum password (optional)
-3. the wallet you want to mine to (pool only)
+Once you have finished the installer, you can start the miner! Make sure to [start a fullnode](#runFullnode) if you intend on solo mining to 127.0.0.1 to your own hsd fullnode. 
+#### Note:
+We do not auto-start the fullnode for you here like we do in HandyMiner-GUI. However we made it easy here and its a [double click to start it](#runFullnode). If you just want to play simnet to check hashrates, feel free to use the simnet node at: ```ip: 3.14.224.108 port: 3008```
 
 ### THE POINT
 
-Non-terminal users: simply double click ```(windows) dashboard.windows.bat``` or ```(mac) dashboard.mac.command``` or ```(linux) dashboard.sh``` files
+Non-terminal users: simply double click ```(windows) dashboard.windows.bat``` or ```(mac) dashboard.mac.command``` or ```(linux) dashboard.sh``` files.
+
+Note The first time you launch will run you thru the [miner configurator](#configurator).
 
 Launch the miner in terminal like:
 ```
@@ -88,10 +87,34 @@ node --max-old-space-size=8196 ./miner/dashboard.js
 
 Note: Mac users need to enter their password to use the dashboard utility. We're not doing anything weird, MacOS requires it to ask the system for temperature/fan information.
 
-Mine blocks!
+#### Mine blocks!
 
 (Ctrl+C to stop the miner)
 
+<a id="minerConfigurator"></a>
+### MINER CONFIGURATOR
+
+The first time you run the miner, you will run through a configurator which will write a config to ./config.json. Should you want to reconfigure in the future, you can just run ```node configure.js``` in this directory. Alternately delete config.json and (re)start the miner.
+
+Required Items to have ready for configuration:
+
+0. host or IP address of the pool or solo node you mine to (127.0.0.1 for your local fullnode)
+
+Optional configuration items (just leave blank and hit enter if you dont know) :
+1. pool or solo node port (probably 3008)
+2. the stratum password (optional)
+3. the wallet you want to mine to (pool only)
+
+
+#### Mining FAQ:
+
+1. I started the dashboard and it says connection to 127.0.0.1 is timed out and trying again in 20s. 
+This means your fullnode is not running. Please [launch a fullnode](#runFullnode)  or mine to a pool IP address.
+
+2. I dont see all my GPUs listed in the configurator
+Use your arrow keys, the list is scrollable. Hit space to multi-select and Enter to goto the next step.
+
+<a id="runFullnode"></a>
 ### Running an HSD Fullnode for solo mining
 
 There are some handy docker utilities in the folder ```./fullnode_utils``` which you can double click on mac/windows/linux to create, launch, stop or nuke a stratum-enabled fullnode on your local machine that you can mine to. Any utilities speicific to the POWNG-simnet tests are noted in the command names. 

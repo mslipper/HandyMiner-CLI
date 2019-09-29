@@ -1068,9 +1068,9 @@ class CLIDashboard{
 	}
 	updateStats(data,type){
 		this.statsData[type] = data;
-		
+		let sharesLabel = this.config.mode == 'pool' ? 'Shares' : 'Blocks';
 		let statsData = [
-	  	'Shares: \x1b[36m'+numeral(this.statsData['shares']).format('0a')+'\x1b[0m',
+	  	sharesLabel+': \x1b[36m'+numeral(this.statsData['shares']).format('0a')+'\x1b[0m',
 	  	'Errors: \x1b[36m'+numeral(this.statsData['errors']).format('0a')+'\x1b[0m',
 	  	'Last Share: \x1b[36m'+(typeof this.statsData['last'] == "undefined" ? 'none' : this.statsData['last'].format('MMM-DD HH:mm'))+'\x1b[0m',
 	  	'Started: \x1b[36m'+this.statsData['started'].format('MMM-DD HH:mm')+'\x1b[0m',
@@ -1379,8 +1379,10 @@ class CLIDashboard{
 	 		fV.push(0/*Math.random()*100*/);
 	 	}
 	  energyArea.setData(['Energy \x1b[36m---W\x1b[0m','Fan Speed \x1b[36m--%\x1b[0m'],[eV,fV]);
+	  let sharesLabel = this.config.mode == 'pool' ? 'Shares' : 'Blocks';
+		
 	  let statsData = [
-	  	'Shares: \x1b[36m0\x1b[0m',
+	  	sharesLabel+': \x1b[36m0\x1b[0m',
 	  	'Errors: \x1b[36m0\x1b[0m',
 	  	'Last Share: \x1b[36mnone\x1b[0m',
 	  	'Started: \x1b[36m'+moment().format('MMM-DD HH:mm')+'\x1b[0m',
