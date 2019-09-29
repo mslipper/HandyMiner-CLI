@@ -102,8 +102,9 @@ There are some handy docker utilities in the folder ```./fullnode_utils``` which
 2. Make sure that you added your wallet address you'd like paid at to ```run.mac.command OR run.windows.bat OR run.sh (for production)``` or ```run.powng.mac.command OR run.powng.windows.bat OR run.powng.sh (for simnet powng testing rn)``` in the end of the command that looks like: ```"./run.sh hs1qu2zqenh8jdxvaqz7nwun4r3k32klmuf6ss2y9s simnet"```
 
 #### Docker Fullnode FAQs:
-1. ```Error response from daemon: driver failed programming external connectivity on endpoint earthlabHSD (...) Error starting userland proxy: mkdir /port/tcp:0.0.0.0:14038:tcp:172.17.0.2:14038: input/output error
-Error: failed to start containers: earthlabHSD``` Right click the docker icon in your taskbar and 'restart docker'. It might take a couple minutes to fully restart.
+
+1. I get an error:: ``` Error response from daemon: driver failed programming external connectivity on endpoint earthlabHSD (...) Error starting userland proxy: mkdir /port/tcp:0.0.0.0:14038:tcp:172.17.0.2:14038: input/output error Error: failed to start containers: earthlabHSD ``` 
+Right click the docker icon in your taskbar and 'restart docker'. It might take a couple minutes to fully restart.
 
 2. Can I access the hsd docker fullnode? 
 Yes. Port 15937 will be open for RPC calls to the node per usual, else ssh into the container's hsd directory with::
