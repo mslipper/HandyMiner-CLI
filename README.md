@@ -25,7 +25,7 @@ EPIC Thanks to Steven McKie for being my mentor/believing in me
 
 ### BEFORE YOU GET STARTED WITH POW-NG
 
-This current iteration is specific to the Next-Generation PoW work in Handshake. It will only be available on simnet as of writing this readme (9/27/2019) until we see the next testnet launch, at which time there will be updates. All the resources included in this particular distribution will be scoped to simnet network and handshake-org/hsd#pow-ng hsd fullnode. Using this on testnet 4 will not work for you.
+This current iteration is specific to the Next-Generation PoW work in Handshake. It will only be available on simnet as of writing this readme (9/27/2019) until we see the next testnet launch, at which time there will be updates. All the resources included in this particular distribution will be scoped to simnet network and handshake-org/hsd#pow-ng hsd fullnode. Using this on testnet 4 will not work for you. If you intent to mine to an existing fullnode you'll need a specific hsd branch, please see simnet_powng_fullnode_native_readme.md (or use the provided docker pow-ng fullnode)
 
 ### PREREQUISITES
 
@@ -41,11 +41,11 @@ This current iteration is specific to the Next-Generation PoW work in Handshake.
 
 Linux: OpenCL Drivers and dependencies install can be found in [./linux_installation.md](./linux_installation.md)
 
-```npm install``` in this directory or (windows) double-click ```install.windows.bat```
+```npm install``` in this directory or (windows) double-click ```install.windows.bat``` (and make sure to run this as administrator)
 
 Note: When you run the npm install we will try to install a copy of hsd in this directory. It will probably fail/complain about unbound support which is fine. We won't be running HSD anyway, only including a couple of files for block header creation from actual HSD block data. You can ignore warnings/failures in this install.
 
-Windows folks: If you didnt double click ```install.windows.bat``` youll need to run the following commands in the repo root:
+Windows folks: If you didnt double click ```install.windows.bat``` youll need to run the following commands in the repo root (make sure to use admin privileges to the terminal) :
 ```npm install --global --production windows-build-tools && npm config set msvs_version 2017 --global``` followed by your ```npm install```
 
 Windows may also need to add the following two items added to the ```Path``` environment variable:
