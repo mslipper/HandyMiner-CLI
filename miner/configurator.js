@@ -124,7 +124,7 @@ class HandyConfigurator{
 				    {
 				      type: 'checkbox',
 				      name: 'gpus',
-				      message: 'Choose Your GPUs',
+				      message: 'Choose Your GPUs (up|down arrows to scroll)',
 				      choices: gpus
 				    },
 				    {
