@@ -30,14 +30,16 @@ EPIC Thanks to Steven McKie for being my mentor/believing in me
 
     Windows/Mac: Built-in, you can skip this.
 
-    Linux: try adding the following packages in apt: 
+    Linux: try adding the following packages in apt:
     ```
     sudo add-apt-repository ppa:graphics-drivers
 
     NVIDIA:
     nvidia-compute-utils-[latest]
     nvidia-utils-[latest]
+    nvidia-driver-[latest]
     nvidia-cuda-toolkit
+
 
     AMD
     //download the drivers (.run file) from AMD.
@@ -62,7 +64,7 @@ EPIC Thanks to Steven McKie for being my mentor/believing in me
 
 3. **Install platform specific dependencies of hsd/support libraries**
 
-  LINUX: ```sudo apt install libunbound-dev``` 
+  LINUX: ```sudo apt install libunbound-dev```
 
   MAC: ```brew install libunbound-dev```
 
@@ -111,7 +113,7 @@ First we should setup our configuration. Note: The default config will list gpus
 }
 ```
 
-The GPU ID's are a comma separated string of GPU ID integers, aka ```"1,2,3"```. 
+The GPU ID's are a comma separated string of GPU ID integers, aka ```"1,2,3"```.
 In addition, we can passin multiple GPU's from multiple platforms and vendors!!1!
 So if platform #1 on my rig has my AMD cards on GPU 0 and GPU 1, while my nvidia cards show up on platform #0 as GPU 1 and GPU 2.
 So in my configuration I'd just add a comma separated value for all platform and manufacturer fields. If they are all the same you can just use 1 as well...
@@ -167,7 +169,7 @@ docker start someContainerName
 where 26137f087795 is the ID of the machine i want to start. After it's started you can now "ssh" in with docker like (windows first) :
 ```
 winpty docker exec -it 26137f087795 bash
-//OR just 
+//OR just
 docker exec -it 26137f087795 bash
 //also you can replace 26137f087795 with someContainerName you set above
 ```
@@ -187,8 +189,8 @@ npm start
 
 ### Possible Windows Gotchas
 If a terminal like Git Bash is throwing errors/problems, try using MinGW-64::
-Go [download mingw-64 8.1.0 with gcc aka "MinGW-W64-install.exe"](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/8.1.0/threads-posix/dwarf/) and have it either installed in 
-```"C:\Program Files\mingw-w64\x86_64-8.1.0-posix-seh-rt_v6-rev0"``` 
+Go [download mingw-64 8.1.0 with gcc aka "MinGW-W64-install.exe"](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/8.1.0/threads-posix/dwarf/) and have it either installed in
+```"C:\Program Files\mingw-w64\x86_64-8.1.0-posix-seh-rt_v6-rev0"```
 OR feel free to change the line in miner/HandyMiner.js to reflect where your mingw64 binaries are located like::
 ```
 envVars.PATH = "C:\\Program\ Files\\mingw-w64\\x86_64-8.1.0-posix-seh-rt_v6-rev0\\bin"+';'+process.env.PATH;
@@ -196,3 +198,9 @@ envVars.PATH = "C:\\Program\ Files\\mingw-w64\\x86_64-8.1.0-posix-seh-rt_v6-rev0
 just change the directory part that's "C:\\Program\ Files\\mingw-w64\\x86_64-8.1.0-posix-seh-rt_v6-rev0\\bin" which should only be some verion difference (aka: "x86_64-8.1.0-posix-seh-rt_v6-rev0") if any. Future reference: This will get bundled in/automated..
 
 ```
+
+## Troubleshooting
+
+### Linux
+
+If you get an error like "couldn't find platform," this means that your GPU drivers are not installed. Try running the driver installation script again. Make sure to reboot after installation.
